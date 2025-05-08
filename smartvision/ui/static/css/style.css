@@ -1,0 +1,51 @@
+@keyframes pulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+.loading-animation {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+.loading-animation .dot {
+    height: 12px;
+    width: 12px;
+    margin-right: 8px;
+    background-color: #4d94ff;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+.loading-animation .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.loading-animation .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+.loading-text {
+    color: #4d94ff;
+    font-size: 16px;
+    margin-left: 10px;
+}
+.upload-section {
+    margin-top: 30px;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: #f0f2f6;
+}
+.success-message {
+    color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 5px;
+}
+
+.video {
+    width: 100%; /* 让视频宽度适应容器 */
+    max-height: 500px; /* 设置视频最大高度，根据需要调整 */
+    object-fit: contain; /* 或者使用 cover 或 fill */
+}

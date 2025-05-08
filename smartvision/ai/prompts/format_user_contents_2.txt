@@ -1,0 +1,7 @@
+please summarise the user' question return a json formatted result as following:
+{
+    conversion_id: ''
+    pet:  "dog" or "cat"
+    breed: ""
+    color: ""    
+}
