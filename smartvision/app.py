@@ -13,7 +13,7 @@ from common.session import init_session
 from common.loader import load_css
 
 # load css
-load_css(st, "ui/static/css/style.css")
+load_css(st, "smartvision/ui/static/css/style.css")
 
 
 # file = "/var/tmp/smart-vision/image/57f0aba9-3da7-4790-baea-863a21641c9c/identified/1-mobile-phone.mp4"

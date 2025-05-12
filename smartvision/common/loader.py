@@ -36,7 +36,7 @@ def load_md(file_name):
     Returns:
         String containing the processed HTML template
     """
-    with open(f'ui/static/md/{file_name}', 'r', encoding='utf-8') as file:
+    with open(f'smartvision/ui/static/md/{file_name}', 'r', encoding='utf-8') as file:
         text = file.read()
     return text
 
