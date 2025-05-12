@@ -45,7 +45,8 @@
 }
 
 .video {
-    width: 100%; /* 让视频宽度适应容器 */
-    max-height: 500px; /* 设置视频最大高度，根据需要调整 */
+    width: 60%; /* 让视频宽度适应容器 */
     object-fit: contain; /* 或者使用 cover 或 fill */
+    border-radius: 15px; /* 设置圆角半径，根据需要调整像素值 */
+    overflow: hidden;    /* 确保视频内容也被圆角裁剪 */
 }

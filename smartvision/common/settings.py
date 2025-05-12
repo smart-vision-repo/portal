@@ -5,6 +5,7 @@ class SESSION_KEYS:
     USER_INPUT_KEY = "user_input_key"
     PROCESSING = "processing"
     STAGE = "stage"
+    READY_FOR_UPLOADING_VIDEO = "ready_for_uploading_video"
     VIDEO_UPLOADED = "video_uploaded"
     START_TIME = "start_time"
     UPLOADED_FILES = "uploaded_files"
@@ -38,7 +39,7 @@ class STAGE:
     SHOW_PROMPT_SETTING_START_TIME = 106 # 显示设置开始时间提示
     USER_SETTING_START_TIME = 107 # 用户设置开始时间
     START_TIME_COMPLETED = 108 # 用户设置开始时间完成
-    SHOW_PROPMPT_SEARCHING = 109 # 显示查找提示
+    SHOW_SEARCHING_PROMPT = 109 # 显示查找提示
     SEARCHING = 110 # 正在查找
     SEARCHING_COMPLETED = 111 # 查找完成
 
@@ -53,6 +54,7 @@ class STAGE:
     CUSTOMER_IDENTIFYING_OBJECTS = 302 # 用户完成对物品的指认
     CUSTOMER_OBJECT_IDENTIFIED = 304 # 用户完成对物品的指认
     CUSTOMER_VIDEO_CLIPPED = 305 # 完成对失物场景的视频剪切
+    CUSTOMER_IDENTIFIED_LOST_OBJECT = 306 # 用户完成对物品的指认
 
     # 阿里云处理过程.
     ALIYUN_SHOW_UPLOADING_PROMPT = 500
@@ -90,6 +92,5 @@ class MODEL_NAMES:
 
 
 class LOCAL_DIRS:
-    VIDEO_DIR = "/var/tmp/smart-vision/video"
-    IMAGE_DIR = "/var/tmp/smart-vision/image"
+    TMP_DIR = "/var/tmp/smart-vision"
 

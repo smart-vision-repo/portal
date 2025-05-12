@@ -14,6 +14,7 @@ def initialize_chat(st, welcome_message):
     system_message = """
     你是一个友好的宠物寻找助手，帮助用户收集丢失宠物的信息。
     你需要收集以下信息：宠物类型(pet_type)、品种(breed)、颜色(color)、最后见到的时间(last_seen_time)，以及任何额外信息(extra_info)。
+    宠物类类型只包含狗与猫，如果用户描述其他宠物，告诉他现在不支持其他宠物类型的查找.
     如果用户提供的信息不完整，请友好地询问缺失的信息。
     当所有必要信息都收集到后，总结所有信息并告知用户信息收集完成。
     """
@@ -34,7 +35,7 @@ def get_next_question(st):
     missing_info = []
 
     if not pet_info["pet_type"]:
-        missing_info.append("宠物类型")
+        missing_info.append("类型")
     if not pet_info["breed"]:
         missing_info.append("品种")
     if not pet_info["color"]:
@@ -49,19 +50,17 @@ def get_next_question(st):
     缺失的信息有：{", ".join(missing_info) if missing_info else "无"}
     
     请生成一个友好的问题，询问用户下一个最重要的缺失信息。如果所有必要信息都已收集（宠物类型、品种、颜色、最后见到时间），
-    请总结所有信息并告知用户信息收集完成，同时询问是否有任何额外信息需要补充。
+    请总结所有信息并告知用户信息收集完成，同时询问是否有任何额外信息需要补充.
+    宠物类类型只包含狗与猫，如果用户描述其他宠物，告诉他现在不支持其他宠物类型的查找.
     
-    保持语气友好、简洁。不要使用JSON格式回复，直接用自然语言提问, 对于已经了解的答案不需要再出现在问题中。
+    保持语气友好、简洁。不要使用JSON格式回复，直接用自然语言提问, 一次问提问所有未得到的数据, 对于已经了解的答案不需要再出现在问题中。
     """
 
     try:
-
         messages = [
             ChatMessage(role="user", content=system_message),
         ]
-
         return llm.chat(messages).message.content
-
     except Exception as e:
         st.error(f"API请求错误: {str(e)}")
         return "请问还有什么关于您丢失宠物的信息可以提供吗？"
@@ -72,9 +71,14 @@ def extract_pet_info(st, text):
     # 构建提示以提取JSON
     prompt = f"""
     从以下文本中提取宠物信息，并以JSON格式返回。
-    需要提取的字段：宠物类型(pet_type)、品种(breed)、颜色(color)、最后见到的时间(last_seen_time), 以及任何额外信息(extra_info)。
+    需要提取的字段：宠物类型(pet_type)、
+    品种(breed)、
+    颜色(color)、
+    最后见到的时间(last_seen_time), 
+    以及任何额外信息(extra_info)。
+    宠物类型(pet_type)的值仅限于狗与猫,
+    当宠物类型有合法的值时,json中的valid字段才为true
     如果某些字段在文本中没有提到，则在JSON中将该字段值设为空字符串。
-    
     文本：{text}
     
     我们需要将你返回的数据解析json数据, 你是一个JSON数据生成器，必须严格按以下要求执行：
@@ -83,13 +87,26 @@ def extract_pet_info(st, text):
     3. 禁止包含```json等代码块标记
     4. 禁止添加解释或注释
     5. 不用返回你是谁
+    6. 宠物类型只能是狗或者是猫，若是其他类型valid返回false
     {{
         "pet_type": "",
         "breed": "",
         "color": "",
         "last_seen_time": "",
         "extra_info": ""，
+        "valid": 'false'
     }}
+
+    example: 
+        propmpt: 我的黄色狗狗于昨天下午3点不见了，品种是泰迪, 脖子上有项圈
+        return：: {{
+            "pet_type": "狗",
+            "breed": "泰迪",
+            "color": "黄色",
+            "last_seen_time": "昨天下午3点",
+            "extra_info": "脖子上有项圈"，
+            "valid": 'true'
+        }}
     """
 
     try:
@@ -108,6 +125,7 @@ def extract_pet_info(st, text):
                 "color",
                 "last_seen_time",
                 "extra_info",
+                "valid",
             ]
             for key in required_keys:
                 if key not in info:

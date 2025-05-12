@@ -3,9 +3,9 @@ import logging
 import sys
 import streamlit as st
 from streamlit_carousel import carousel
-from common.settings import SESSION_KEYS, PROMPT_TEXT, LOCAL_DIRS, STAGE, KEY_NAMES
+from common.settings import SESSION_KEYS, PROMPT_TEXT, STAGE, KEY_NAMES
 from common.loader import show_md_content
-from common.utils import list_image_files
+from common.utils import list_image_files, get_resource_dir
 
 from ai.common.yolo import yolo_find_objects_by_images, detect_object_loss_time
 from ai.common.cv import cv_extract_frames, cv_clip_video
@@ -70,37 +70,27 @@ def render_staff_col_chat(chat_col, info_col):
             identifying_objects()
 
         # 用户指认物品完成, 开始准备查找
-        if curr == STAGE.CUSTOMER_OBJECT_IDENTIFIED:
+        if curr == STAGE.CUSTOMER_IDENTIFIED_LOST_OBJECT:
             show_searching_prompt()
 
         # clip object lost scenario video
         if curr == STAGE.SEARCHING_COMPLETED:
+            show_assistant_animation_message("失物的丢失时间已找到, 正在剪切视频")
             clip_video()
 
-        # play object lost scenario video
-        if curr == STAGE.CUSTOMER_VIDEO_CLIPPED:
-            play_identified_video()
 
     render_staff_info_col_info(info_col)
 
 
-def play_identified_video():
-    output_dir = f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}/identified"
-    clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
-    file_name = clip_time["file_name"]
-    clip_file_name = os.path.join(output_dir, file_name.split("/")[-1])
-    with st.chat_message("assistant"):
-        st.video(clip_file_name)
-
 
 def clip_video():
-    output_dir = f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}/identified"
+    video_dir, result_dir = get_resource_dir(st)
     clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
     lost_time = clip_time["lost_time"]
     if cv_clip_video(
-        clip_time["file_name"], lost_time - 10.0, lost_time + 10.0, output_dir
+        clip_time["file_name"], lost_time - 10.0, lost_time + 10.0, result_dir
     ):
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_VIDEO_CLIPPED
+        st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_OBJECT_IDENTIFIED
     else:
         st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
     st.rerun()
@@ -122,9 +112,7 @@ def on_searching_callback():
 
 
 def show_searching_prompt():
-    video_path = (
-        f"{LOCAL_DIRS.VIDEO_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}"
-    )
+    video_path, result_dire = get_resource_dir(st)
     with st.chat_message("assistant"):
         show_md_content(
             st,
@@ -152,29 +140,26 @@ def show_preparing_prompt():
 
 def prepare_images():
     show_assistant_animation_message("正在准备图片...")
-    video_path = (
-        f"{LOCAL_DIRS.VIDEO_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}"
-    )
-    output_dir = f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}/identified"
+    video_path, result_dir = get_resource_dir(st)
     start_time = st.session_state[SESSION_KEYS.START_TIME]
     results = cv_extract_frames(
         # 从指定时间开始取一帧图片，供客户确认物品的位置
         on_extracting,
         None,
         video_path,
-        output_dir,
+        result_dir,
         start_time,
         1,
         1,
         1,
     )
     if results and len(results) > 0:
-        files = list_image_files(output_dir)
+        files = list_image_files(result_dir)
         if len(files) == 0:
             st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
             st.rerun()
         identified_objects = yolo_find_objects_by_images(
-            yolo_identifying_callback, None, output_dir, None, 0.2, True
+            yolo_identifying_callback, None, result_dir, None, 0.2, True
         )
         st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = identified_objects
         st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_IDENTIFYING_OBJECTS
@@ -191,15 +176,15 @@ def identifying_objects():
         st.rerun()
 
     show_assistant_animation_message("请识别图片中的物件，点击可放大...")
-    output_dir = f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}/identified"
-    files = list_image_files(output_dir)
+    video_dir, result_dir = get_resource_dir(st)
+    files = list_image_files(result_dir)
     with st.chat_message("assistant"):
         col_index = 0
         image_cols = st.columns(3)
         for file_name in files:
             with image_cols[col_index]:
                 st.image(
-                    os.path.join(output_dir, file_name),
+                    os.path.join(result_dir, file_name),
                     caption="请在图中确认你的物品",
                     use_container_width=True,
                 )

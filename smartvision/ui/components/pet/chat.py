@@ -1,28 +1,22 @@
-import os
-import logging
-import sys
-import time
+from loguru import logger
 import streamlit as st
 from streamlit_carousel import carousel
-from common.settings import SESSION_KEYS, PROMPT_TEXT, LOCAL_DIRS, STAGE, KEY_NAMES
+from common.settings import SESSION_KEYS, PROMPT_TEXT, STAGE, KEY_NAMES
 from common.loader import show_md_content
 from common.aliyun import put_identified_objects
 from ui.components.pet.info import render_pet_info_col_info
-from ui.components.common import append_asistant_message, append_user_message
+from common.utils import get_resource_dir
+from ui.components.common import append_asistant_message, append_user_message, show_assistant_animation_message
 
 from ai.pet.llm import (
     extract_pet_info,
     get_next_question,
     initialize_chat,
 )
-from ai.common.yolo import yolo_find_objects_by_images
-from ai.common.cv import cv_extract_frames
-
-logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
-logger = logging.getLogger()
-
+from ai.common.yolo import yolo_find_objects_by_video
 
 def render_pet_col_chat(chat_col, info_col):
+    logger.debug("render chat info.")
 
     curr = st.session_state[SESSION_KEYS.STAGE]
     if curr == STAGE.COMPLETED_NO_RESULTS:
@@ -32,8 +26,6 @@ def render_pet_col_chat(chat_col, info_col):
     if not st.session_state[SESSION_KEYS.INITIALIZED]:
         welcome_message = "您好！我是宠物寻找助手, 请告诉您的宠物有关特征"
         initialize_chat(st, welcome_message)
-    # 创建两列布局
-    # chat_col, info_col = st.columns([3, 2])
 
     # 左侧聊天区域
     with chat_col:
@@ -58,29 +50,13 @@ def render_pet_col_chat(chat_col, info_col):
                     st.session_state[SESSION_KEYS.PROMPT_LOADING_MSG],
                 )
 
-        # 抽取图片
-        if curr == STAGE.EXTRACTIING_IMAGES:
-            with st.chat_message("assistant"):
-                placeholder = st.empty()
-                extract_video_frames(placeholder)
-
-        # 显示作业提示
-        if curr == STAGE.SHOW_PROPMT_IDENTIFY_OBJECTS:
-            ready_for_identifying_object()
-
         # 识别目标
         if curr == STAGE.IDENTIFING_OBJECTS:
+            show_assistant_animation_message("正在进行视频内容检测...")
+            logger.debug("正在进行视频检测.")
             with st.chat_message("assistant"):
                 placeholder = st.empty()
                 identify_objects(placeholder)
-
-        # 准备上传
-        if curr == STAGE.ALIYUN_SHOW_UPLOADING_PROMPT:
-            ready_for_uploading()
-
-        # 正在上传
-        if curr == STAGE.ALIYUN_UPLOADING_OBJECTS:
-            upload_images_to_aliyun()
 
         # 用户输入区域
         if not st.session_state[SESSION_KEYS.COLLECTION_COMPLETE]:
@@ -91,13 +67,13 @@ def render_pet_col_chat(chat_col, info_col):
 
 
 def handle_ai_running():
-
     if not st.session_state[SESSION_KEYS.AI_RUNNING]:
         return
 
     user_input = st.session_state[SESSION_KEYS.USER_INPUT_TEXT]
     # 从用户消息中提取宠物信息
     extracted_info = extract_pet_info(st, user_input)
+    logger.debug(extracted_info)
     update_pet_info(extracted_info)
 
     # 检查信息是否完整
@@ -144,49 +120,6 @@ def handle_user_input():
         st.session_state[SESSION_KEYS.USER_INPUT_TEXT] = user_input
         st.rerun()
 
-
-def get_resource_dir():
-    video_path = (
-        f"{LOCAL_DIRS.VIDEO_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}"
-    )
-    image_path = (
-        f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}"
-    )
-    return video_path, image_path
-
-
-def extract_video_frames(placeholder):
-    """
-    Function: extract_video_frames
-    """
-    path, output_dir = get_resource_dir()
-    start_time = time.time()
-    summary = cv_extract_frames(
-        on_extracting_images, placeholder, path, output_dir, 0, 0, 1
-    )
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    text = "视频{}个, 总时长{}秒, 图像处理用时:{}秒"
-    video_count = len(summary)
-    durations = sum(map(lambda x: x["duration"], summary))
-    append_asistant_message(
-        text.format(int(video_count), int(durations), int(elapsed_time))
-    )
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.SHOW_PROPMT_IDENTIFY_OBJECTS
-    st.rerun()
-
-
-def on_extracting_images(placeholder, image_index, total):
-    """
-    Function: 实时显示进度
-    """
-    message = f"""<span>正在提取视频画面,当前进度(<span style='font-size: 20px; color=red'>{image_index/total:.2%}</span>):{image_index}/{int(total)}</span>"""
-    placeholder.markdown(
-        message,
-        unsafe_allow_html=True,
-    )
-
-
 def ready_for_uploading():
     st.session_state[SESSION_KEYS.PROMPT_LOADING_MSG] = (
         PROMPT_TEXT.UPLOADING_IDENTIFIED_OBJECTS
@@ -206,13 +139,6 @@ def upload_images_to_aliyun():
     st.rerun()
 
 
-def ready_for_identifying_object():
-    st.session_state[SESSION_KEYS.PROMPT_LOADING_MSG] = PROMPT_TEXT.IDENTIFING_OBJECT
-    st.session_state[SESSION_KEYS.PROCESSING] = True
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.IDENTIFING_OBJECTS
-    st.rerun()
-
-
 def identify_objects(placeholder):
     pet_type = st.session_state[SESSION_KEYS.PET_INFO]["pet_type"]
     object_name = ""
@@ -223,14 +149,20 @@ def identify_objects(placeholder):
 
     if object_name == "":
         return
+        
+    video_dir, image_dir = get_resource_dir(st)
 
-    identified_objects = yolo_find_objects_by_images(
-        on_identifying_object,
-        placeholder,
-        f"{LOCAL_DIRS.IMAGE_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}",
-        object_name,
-        0.1,
+    # 查找
+    identified_objects = yolo_find_objects_by_video(
+        video_dir= video_dir,
+        image_dir= image_dir,
+        object_name= object_name,
+        min_confidence= 0.1,
+        draw_box= False,
+        callback= on_identifying_object,
+        placeholder= placeholder
     )
+
     st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = identified_objects
     found = len(identified_objects)
     if found == 0:
@@ -239,31 +171,34 @@ def identify_objects(placeholder):
     else:
         append_asistant_message(f"找到{found}个画面包含{pet_type}")
 
-    sorted_data = filter_identified_objects(identified_objects)
-    st.session_state[SESSION_KEYS.FILTERED_OBJECTS] = sorted_data
-    append_asistant_message(f"过滤出置信度最高的{len(sorted_data)}个画面")
-    # 转到更新上传图片至阿里云
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.ALIYUN_SHOW_UPLOADING_PROMPT
+    # sorted_data = filter_identified_objects(identified_objects)
+    st.session_state[SESSION_KEYS.FILTERED_OBJECTS] = identified_objects
+    append_asistant_message(f"过滤出置信度最高的{len(identified_objects)}个画面")
+    # 显示图片
+    st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_OBJECT_IDENTIFIED
     st.rerun()
 
 
-def on_identifying_object(placeholder, index, total, suspectors, confidence):
-    text = f"""从第**{index}/{total}**个视频中找到**{suspectors}**个宠物,相似度为**{confidence:.2%}**"""
+def on_identifying_object(placeholder, text):
     placeholder.markdown(text, unsafe_allow_html=True)
 
 
 def onSetStartTime(start_time):
     append_asistant_message(f"你选择了从第**⏰{start_time}**分钟开始查找")
     st.session_state[SESSION_KEYS.START_TIME] = start_time
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.SHOW_PROPMPT_SEARCHING
+    st.session_state[SESSION_KEYS.STAGE] = STAGE.SHOW_SEARCHING_PROMPT
 
 
 def check_info_complete():
     """检查宠物信息是否完整"""
-    required_fields = ["pet_type", "breed", "color", "last_seen_time"]
+    pet_info = st.session_state[SESSION_KEYS.PET_INFO]
+    required_fields = ["pet_type", "breed", "color", "last_seen_time", "valid"]
     for field in required_fields:
-        if not st.session_state[SESSION_KEYS.PET_INFO][field]:
+        value = pet_info[field]
+        logger.debug(f".....>>{value}")
+        if not value:
             return False
+    pet_info = st.session_state[SESSION_KEYS.PET_INFO]
     return True
 
 
@@ -273,6 +208,7 @@ def update_pet_info(new_info):
         return
     for key, value in new_info.items():
         if value:  # 只更新非空值
+            logger.debug(f">> {value}")
             st.session_state[SESSION_KEYS.PET_INFO][key] = value
 
 

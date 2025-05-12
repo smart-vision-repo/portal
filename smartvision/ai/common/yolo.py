@@ -2,6 +2,7 @@ import cv2
 import time
 import os
 from ultralytics import YOLO
+from smartvision.common.utils import get_str_time, get_available_device
 
 model = YOLO("/opt/models/yolo/yolo11x.pt", verbose=False)  #
 
@@ -58,7 +59,7 @@ def yolo_find_objects_by_video(
     返回: 检测到的内容
     """
 
-    device = get_available_device
+    device = get_available_device()
     identified_objects = []
     files = list_video_files(video_dir)
     if len(files) == 0:
@@ -68,37 +69,46 @@ def yolo_find_objects_by_video(
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
 
-    frame_index = 0
     file_index = 0
     for file in files:
         file_index += 1
         file_name = os.path.join(video_dir, file)
-        video = cv2.VideoCapture(file_name)
-        if not video.isOpened():
+        cap = cv2.VideoCapture(file_name)
+        if not cap.isOpened():
             print(f"无法打开视频文件: {file_name}")
             continue
+        # --- 配置 ---
+        seconds_interval = 1.0  # 设置为您想要的间隔，例如每 2 秒读取一帧
+        msec_interval = seconds_interval * 1000 # 转换为毫秒
+        current_target_msec = 0 # 从视频开始处
+        processed_frame_count = 0
+        print(f"配置为大约每 {seconds_interval} 秒尝试读取一帧...")
 
         # 获取视频属性
-        fps = video.get(cv2.CAP_PROP_FPS)
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
-        while video.isOpened():
-            ret, frame = video.read()
+        while cap.isOpened():
+            cap.set(cv2.CAP_PROP_POS_MSEC, current_target_msec)
+            ret, frame = cap.read()
             if not ret:
                 break
 
-            # 每30帧处理一次（可以根据需要调整，提高效率）
-            if frame_index % 30 != 0:
-                frame_index += 1
-                continue
-            frame_index += 1
+            # 如果读取成功，我们得到了目标时间点附近的帧
+            processed_frame_count += 1
+            # 更新下一次目标时间点
+            current_target_msec += msec_interval
+            # (可选) 添加非常小的延时防止CPU空转过快，或者根据处理时间动态调整
+            # time.sleep(0.01)
+            current_frame_index = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
 
-            results = model.predict(frame, device=device)
-            time = frame_index_to_time(frame_index, fps)
+            results = model.predict(frame, device=device, verbose=False)
+            frame_time = frame_index_to_time(current_frame_index, fps)
             file_name = os.path.join(
-                image_dir, f"{int(file_index):02}-{time}.jpg"
+                image_dir, f"{int(file_index):02}-{frame_time}.jpg"
             )
+
             frame_info = _handle_predicted_results(
-                time,
+                frame_time,
                 results,
                 object_name,
                 min_confidence,
@@ -112,7 +122,7 @@ def yolo_find_objects_by_video(
                                "max_box_id": frame_info["max_box_id"],
                                "results": frame_info["results"]}
                 identified_objects.append(frame_items)
-        video.release()
+        cap.release()
     return _save_identified_object_images(sorted(identified_objects, key=lambda x: x["file_name"], reverse=False))
 
 
@@ -210,19 +220,20 @@ def _detect_object_loss_time(
     返回:
     float: 物体丢失的时间点（秒），如果物体未丢失则返回None
     """
+    device = get_available_device()
 
     # 打开视频文件
-    video = cv2.VideoCapture(video_path)
-    if not video.isOpened():
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
         print(f"无法打开视频文件: {video_path}")
         return None
 
     # 获取视频属性
-    fps = video.get(cv2.CAP_PROP_FPS)
-    total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    print(f"视频FPS: {fps}")
-    print(f"总帧数: {total_frames}")
+    # print(f"视频FPS: {fps}")
+    # print(f"总帧数: {total_frames}")
 
     # 计算容错帧数
     tolerance_frames = int(tolerance_seconds * fps)
@@ -260,86 +271,87 @@ def _detect_object_loss_time(
     iou_threshold = 0.3
 
     # 开始处理视频
-    frame_idx = 0
-    while video.isOpened():
-        ret, frame = video.read()
+      # --- 配置 ---
+    seconds_interval = 1.0  # 设置为您想要的间隔，例如每 2 秒读取一帧
+    msec_interval = seconds_interval * 1000 # 转换为毫秒
+    current_target_msec = 0 # 从视频开始处
+    processed_frame_count = 0
+    print(f"配置为大约每 {seconds_interval} 秒尝试读取一帧...")
+
+    while cap.isOpened():
+        cap.set(cv2.CAP_PROP_POS_MSEC, current_target_msec)
+        ret, frame = cap.read()
         if not ret:
             break
 
-        # 每30帧处理一次（可以根据需要调整，提高效率）
-        if frame_idx % 30 == 0:
-            # 使用YOLO进行物体检测
-            results = model(frame)
 
-            # 查找匹配的物体
-            object_found = False
-            for r in results:
-                boxes = r.boxes
-                for box in boxes:
-                    # 获取预测的类别
-                    cls = int(box.cls[0])
-                    label = model.names[cls]
+        # 如果读取成功，我们得到了目标时间点附近的帧
+        processed_frame_count += 1
+        # 更新下一次目标时间点
+        current_target_msec += msec_interval
+        # (可选) 添加非常小的延时防止CPU空转过快，或者根据处理时间动态调整
+        # time.sleep(0.01)
+        current_frame_index = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+        results = model.predict(frame, device=device, verbose=False)
 
-                    # 如果标签匹配
-                    if label == target_label:
-                        # 获取预测的边界框
-                        detected_box = (
-                            box.xyxy[0].cpu().numpy()
-                        )  # 转换为 [x1, y1, x2, y2] 格式
+        # 查找匹配的物体
+        object_found = False
+        for r in results:
+            boxes = r.boxes
+            for box in boxes:
+                # 获取预测的类别
+                cls = int(box.cls[0])
+                label = model.names[cls]
 
-                        # 计算IoU
-                        iou = calculate_iou(target_box, detected_box)
+                # 如果标签匹配
+                if label == target_label:
+                    # 获取预测的边界框
+                    detected_box = (
+                        box.xyxy[0].cpu().numpy()
+                    )  # 转换为 [x1, y1, x2, y2] 格式
 
-                        # 如果IoU大于阈值，认为是目标物体
-                        if iou > iou_threshold:
-                            object_found = True
-                            break
+                    # 计算IoU
+                    iou = calculate_iou(target_box, detected_box)
 
-                if object_found:
-                    break
+                    # 如果IoU大于阈值，认为是目标物体
+                    if iou > iou_threshold:
+                        object_found = True
+                        break
 
-            # 检查物体是否消失
-            if not object_found:
-                if object_detected:  # 物体刚开始消失
-                    missing_start_frame = frame_idx
-                    object_detected = False
+            if object_found:
+                break
 
-                missing_count = frame_idx - missing_start_frame
+        # 检查物体是否消失
+        if not object_found:
+            if object_detected:  # 物体刚开始消失
+                missing_start_frame = current_frame_index
+                object_detected = False
 
-                # 检查是否超过容错时间
-                if missing_count >= tolerance_frames:
-                    lost_time = missing_start_frame / fps
-                    print(f"物体在视频 {lost_time:.2f} 秒处丢失")
-                    # 可以选择在这里退出循环或继续检测
-                    break
-            else:
-                # 物体重新出现
-                if not object_detected:
-                    object_detected = True
-                    missing_count = 0
-                    # 如果在容错时间内物体重新出现，重置丢失时间
-                    if (
-                        lost_time is not None
-                        and (frame_idx / fps - lost_time) <= tolerance_seconds
-                    ):
-                        print(
-                            f"物体在视频 {frame_idx / fps:.2f} 秒处重新出现，不视为丢失"
-                        )
-                        lost_time = None
+            missing_count = current_frame_index - missing_start_frame
 
-        frame_idx += 1
-
-        # 显示进度
-        if frame_idx % 100 == 0:
-            print(
-                f"处理进度: {frame_idx}/{total_frames} 帧 ({frame_idx/total_frames*100:.1f}%)"
-            )
-
+            # 检查是否超过容错时间
+            if missing_count >= tolerance_frames:
+                lost_time = missing_start_frame / fps
+                print(f"物体在视频 {lost_time:.2f} 秒处丢失")
+                # 可以选择在这里退出循环或继续检测
+                break
+        else:
+            # 物体重新出现
+            if not object_detected:
+                object_detected = True
+                missing_count = 0
+                # 如果在容错时间内物体重新出现，重置丢失时间
+                if (
+                    lost_time is not None
+                    and (current_frame_index / fps - lost_time) <= tolerance_seconds
+                ):
+                    print(
+                        f"物体在视频 {current_frame_index/ fps:.2f} 秒处重新出现，不视为丢失"
+                    )
+                    lost_time = None
     # 释放视频资源
-    video.release()
-
+    cap.release()
     return lost_time
-
 
 def _get_max_confidence_image(identified_objects):
     filted_images = []
@@ -411,6 +423,7 @@ def _save_identified_object_images(identified_objects : list):
                 2,
             )
         cv2.imwrite(file_name, image)
+    return max_confidence_images
 
 
 def _handle_predicted_results(
@@ -445,14 +458,15 @@ def _handle_predicted_results(
                     "box": box,
                 }
                 identified_boxes.append(box_info)
-        if callback:
-            callback(placeholder, time, confidence)
+                if callback and placeholder:
+                        callback(placeholder, f"在{get_str_time(time)}找到了{object_name},置信度为:{confidence}")
     if max_confidence > 0:
         return {"max_confidence": max_confidence, "lable": label, "max_box_id": max_box_id, "results": identified_boxes}
     
     return None
 
 
+    
 
 def frame_index_to_time(frame_index, fps):
     seconds = frame_index / fps
@@ -473,46 +487,6 @@ def list_video_files(path):
 def find_object_callback(index, total, file_name, confidence):
     text = f"{index}/{total},{confidence}->{file_name}"
     print(text)
-
-import torch
-import platform
-
-def get_available_device():
-    """
-    检测并返回可用的最佳计算设备 (MPS, CUDA, 或 CPU).
-    优先顺序: MPS (在 macOS上), CUDA, CPU.
-    """
-    # 检查 Apple Silicon (MPS)
-    if platform.system() == "Darwin": # macOS
-        if torch.backends.mps.is_available():
-            print("MPS (Apple Silicon GPU) 可用。")
-            # 还可以检查 MPS 是否真的能工作 (某些旧 macOS 版本或 PyTorch 版本可能有问题)
-            try:
-                # 创建一个简单的张量并移至 mps 设备以验证
-                _ = torch.tensor([1.0, 2.0]).to("mps")
-                print("MPS 功能正常。将使用 'mps' 设备。")
-                return "mps"
-            except Exception as e:
-                print(f"MPS 可用但测试失败: {e}。将回退到 CPU。")
-                # 如果 MPS 测试失败，通常回退到 CPU，因为 CUDA 在 Mac 上不被原生支持
-        else:
-            print("MPS 不可用。")
-    
-    # 检查 NVIDIA CUDA
-    if torch.cuda.is_available():
-        print("CUDA (NVIDIA GPU) 可用。")
-        cuda_device_count = torch.cuda.device_count()
-        print(f"找到 {cuda_device_count} 个 CUDA 设备。")
-        if cuda_device_count > 0:
-            # 获取第一个 CUDA 设备的名称
-            cuda_device_name = torch.cuda.get_device_name(0)
-            print(f"将使用 CUDA 设备 0: {cuda_device_name}")
-            return "cuda" # 或者 "cuda:0"
-    else:
-        print("CUDA 不可用。")
-        
-    print("MPS 和 CUDA 均不可用。将使用 'cpu' 设备。")
-    return "cpu"
 
 
 if __name__ == "__main__":

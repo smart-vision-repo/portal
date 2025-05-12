@@ -1,6 +1,6 @@
 import streamlit as st
-from streamlit_carousel import carousel
 from common.settings import SESSION_KEYS, PROMPT_TEXT, LOCAL_DIRS, STAGE, KEY_NAMES
+from common.utils import get_resource_dir
 from common.loader import show_md_content
 from ai.common.cv import cv_video_info
 import os
@@ -27,9 +27,7 @@ def show_assistant_animation_message(message):
 def on_file_uploaded(uploaded_files, next_stage):
     """处理视频上传"""
     if uploaded_files:
-        video_dir = (
-            f"{LOCAL_DIRS.VIDEO_DIR}/{st.session_state[SESSION_KEYS.TRANSACTION_ID]}"
-        )
+        video_dir, image_dir = get_resource_dir(st)
         os.makedirs(video_dir, exist_ok=True)  # 确保目录存在
         index = 1
         for uploaded_file in uploaded_files:

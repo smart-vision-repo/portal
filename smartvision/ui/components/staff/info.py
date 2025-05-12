@@ -40,7 +40,7 @@ def render_staff_info_col_info(info_col):
                 # xyxy = box.xyxy[0].cpu().numpy()  # Bo
                 json = {"label": label, "location": xyxy[0]}
                 st.session_state[SESSION_KEYS.USER_OBJECT_BOX] = json
-                st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_OBJECT_IDENTIFIED
+                st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_IDENTIFIED_LOST_OBJECT
                 st.rerun()
 
         if curr == STAGE.START_TIME_COMPLETED:
