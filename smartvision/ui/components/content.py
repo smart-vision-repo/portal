@@ -5,6 +5,7 @@ from common.settings import DATA_OPTIONS
 from loguru import logger
 from ui.components.pet.chat import render_pet_col_chat
 from ui.components.staff.chat import render_staff_col_chat
+from ui.components.collision.chat import render_collision_col_chat
 from common.settings import SESSION_KEYS, STAGE, KEY_NAMES
 from common.utils import get_str_time, get_resource_dir
 
@@ -23,6 +24,9 @@ def render_content():
                 # play object lost scenario video
         if biz_index == 1:
             play_identified_video()
+        
+        if biz_index == 2:
+            show_footages()
     else:
         # 创建两列布局
         chat_col, info_col = st.columns([3, 2])
@@ -36,7 +40,23 @@ def render_content():
         elif biz_index == 1:
             render_staff_col_chat(chat_col, info_col)
         elif biz_index == 2:
-            pass
+            render_collision_col_chat(chat_col, info_col)
+
+def show_footages():
+    results = st.session_state[SESSION_KEYS.B2_RESULTS] 
+    if results:
+        st.subheader("Top 3 closest vehicles:")
+        st.subheader("碰撞检测平面距离结果")
+        cols = st.columns(3)
+        for i, result in enumerate(results):
+            with cols[i]:
+                video_file_name = result['footage_file_name']
+                seconds = f"{result['seconds']:.2f}秒"
+                st.video(video_file_name, autoplay=True)
+                st.info(seconds)
+    else:
+        st.header("无数据")
+
 
 def show_identified_images():
     filterd_objects = st.session_state[SESSION_KEYS.FILTERED_OBJECTS]
@@ -54,17 +74,21 @@ def show_identified_images():
             st.success(get_image_time(file_name))
         col_index += 1
 
-def play_identified_video():
-    video_dir, result_dir = get_resource_dir(st)
-    clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
-    lost_time = clip_time["lost_time"]
-    clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
-    file_name = clip_time["file_name"]
-    clip_file_name = os.path.join(result_dir, file_name.split("/")[-1])
-    cols = st.columns(1, gap="small")
-    with cols[0]:
-        st.subheader(f"失物被取走时间约在视频处{int(lost_time)}秒")
-        st.video(clip_file_name, autoplay=True)
+def play_identified_video(biz_index):
+    if biz_index == 1:
+        video_dir, result_dir = get_resource_dir(st)
+        clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
+        if clip_time:
+            lost_time = clip_time["lost_time"]
+            clip_time = st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME]
+            file_name = clip_time["file_name"]
+            clip_file_name = os.path.join(result_dir, file_name.split("/")[-1])
+            cols = st.columns(1, gap="small")
+            with cols[0]:
+                st.subheader(f"失物被取走时间约在视频处{int(lost_time)}秒")
+                st.video(clip_file_name, autoplay=True)
+    else:
+        st.header("无数据.")
 
 def get_image_time(file_name):
     prefix = file_name.split(".")[0]

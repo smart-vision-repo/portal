@@ -64,6 +64,23 @@ def get_str_time(time):
         str += f"{values[2]}秒"
     return str
 
+def scroll_to_bottom_markdown(st):
+    """使用 Markdown 注入滚动到底部的 JavaScript"""
+    js = """
+    <script>
+        function scroll() {
+            try {
+                 window.parent.document.body.scrollTop = window.parent.document.body.scrollHeight;
+            } catch (e) {
+                 // Fallback if parent access fails
+                 window.scrollTo(0, document.body.scrollHeight);
+            }
+        }
+        setTimeout(scroll, 150); // Small delay to ensure content renders
+    </script>
+    """
+    st.markdown(js, unsafe_allow_html=True)
+
 
 def get_resource_dir(st):
     video_path = (

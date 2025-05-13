@@ -19,6 +19,8 @@ class SESSION_KEYS:
     BIZ_INDEX = "biz_index"
     EXTRACTING_IMAGE_MESSAGE = "extraction_message"
     INDENTIFIED_OBJECTS = "identified_objects"
+    B2_RESULTS = "b2_results"
+    PREPARED_DATA = "prepared_data"
     FILTERED_OBJECTS = "filterd_objects"
     AI_RUNNING = "ai_running"
     USER_INPUT_TEXT = "user_input_text"
@@ -51,7 +53,7 @@ class STAGE:
     # 查找物品
     CUSTOMER_PREPARE_OBJECTS = 300 # 根据用户设定的开始时间，准备图片给用户指认物品位置
     SHOW_PROMPT_PREPARING_IMAGES = 301
-    CUSTOMER_IDENTIFYING_OBJECTS = 302 # 用户完成对物品的指认
+    CUSTOMER_IDENTIFYING_OBJECTS = 302 # 用户正在对物品的指认
     CUSTOMER_OBJECT_IDENTIFIED = 304 # 用户完成对物品的指认
     CUSTOMER_VIDEO_CLIPPED = 305 # 完成对失物场景的视频剪切
     CUSTOMER_IDENTIFIED_LOST_OBJECT = 306 # 用户完成对物品的指认
@@ -64,7 +66,7 @@ class STAGE:
 
 
 class DATA_OPTIONS:
-    FUNCTIONS = ["宠物", "物品", "剐蹭"]
+    FUNCTIONS = ["宠物寻迹", "物品追踪", "碰撞检测"]
 
 
 class PROMPT_TEXT:
@@ -72,7 +74,7 @@ class PROMPT_TEXT:
     WAITING_FOR_VIDEOES = "请上传视频文件，我们将协助查找..."
     IDENTIFING_OBJECT = "正在识别目标"
     UPLOADING_IDENTIFIED_OBJECTS = "正在上传已识别的目标"
-    STAFF_UPLOADING_VIDEO = "请上传监控视频，方便我们定位您的物品."
+    STAFF_UPLOADING_VIDEO = "请告诉我们从视频的什么时间开始进行查找."
 
 
 class KEY_NAMES:

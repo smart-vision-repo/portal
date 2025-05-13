@@ -5,21 +5,21 @@ import streamlit as st
 from streamlit_carousel import carousel
 from common.settings import SESSION_KEYS, PROMPT_TEXT, STAGE, KEY_NAMES
 from common.loader import show_md_content
-from common.utils import list_image_files, get_resource_dir, scroll_to_bottom_markdown
+from common.utils import list_image_files, get_resource_dir, scroll_to_bottom_markdown, list_video_files
 
-from ai.common.yolo import yolo_find_objects_by_images, detect_object_loss_time
 from ai.common.cv import cv_extract_frames, cv_clip_video
+from ai.common.collision import VehicleDetectionSystem
+
 
 from ui.components.staff.info import render_staff_info_col_info
-from ui.components.common import show_assistant_animation_message
+from ui.components.common import show_assistant_animation_message, append_asistant_message
 
 from ai.pet.llm import  initialize_chat
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 logger = logging.getLogger()
 
-
-def render_staff_col_chat(chat_col, info_col):
+def render_collision_col_chat(chat_col, info_col):
     curr = st.session_state[SESSION_KEYS.STAGE]
     if curr == STAGE.COMPLETED_NO_RESULTS:
         st.markdown("""### 谢谢您使用助手，本次会话结束, 祝你生活愉快!""")
@@ -31,7 +31,7 @@ def render_staff_col_chat(chat_col, info_col):
     # 左侧聊天区域
     with chat_col:
         if not st.session_state[SESSION_KEYS.INITIALIZED]:
-            welcome_message = "您好！我是失物寻找助手，请您上传监控视频."
+            welcome_message = "您好！我是碰撞检测助手，请您上传监控视频."
             initialize_chat(st, welcome_message)
             st.session_state[SESSION_KEYS.STAGE] = STAGE.ALIYUN_UPLOADING_OBJECTS
         # 显示对话历史
@@ -74,11 +74,6 @@ def render_staff_col_chat(chat_col, info_col):
         if curr == STAGE.CUSTOMER_IDENTIFIED_LOST_OBJECT:
             show_searching_prompt()
 
-        # clip object lost scenario video
-        if curr == STAGE.SEARCHING_COMPLETED:
-            show_assistant_animation_message("失物的丢失时间已找到, 正在剪切视频")
-            scroll_to_bottom_markdown(st)
-            clip_video()
 
     render_staff_info_col_info(info_col)
 
@@ -113,101 +108,57 @@ def on_searching_callback():
 
 
 def show_searching_prompt():
-    video_path, result_dire = get_resource_dir(st)
-    with st.chat_message("assistant"):
-        show_md_content(
-            st,
-            KEY_NAMES.FILE_LOADING_ANIMATION,
-            PROMPT_TEXT.IDENTIFING_OBJECT,
-        )
-    box = st.session_state[SESSION_KEYS.USER_OBJECT_BOX]
-    result = detect_object_loss_time(
-        video_path=video_path,
-        target_label=box["label"],
-        target_box=box["location"],
-        tolerance_seconds=5.0,
-    )
-    if result:
-        st.session_state[SESSION_KEYS.USER_OBJECT_CLIP_TIME] = result
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.SEARCHING_COMPLETED
-        st.rerun()
-    else:
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
+    show_assistant_animation_message("正在查找距离您的车辆最近的目标, 请稍后...")
+    video_path, result_dir = get_resource_dir(st)
+    files = list_video_files(video_path)
+    video_file_name = f"{video_path}/{files[0]}"
+    prepared_data  = st.session_state[SESSION_KEYS.PREPARED_DATA]
+    seconds = st.session_state[SESSION_KEYS.START_TIME]
+    vehicle_index = st.session_state[SESSION_KEYS.USER_OBJECT_BOX_INDEX]
+    vehicles = prepared_data['vehicles']
+    selected_vehicle = next((v for v in vehicles if v["vehicle_id"] == vehicle_index), None)
+    collision = VehicleDetectionSystem(model_path="/opt/models/yolo/yolo11x.pt", output_dir= result_dir)
+    clips = collision.nearest_distance_detection(video_file_name, selected_vehicle, seconds)
+    st.session_state[SESSION_KEYS.B2_RESULTS] = clips
+    st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_OBJECT_IDENTIFIED
+    st.rerun()
+    
 
 
 def prepare_images():
-    show_assistant_animation_message("正在准备图片")
+    show_assistant_animation_message("正在抽取视频中的图片，供您标定目标车辆")
     video_path, result_dir = get_resource_dir(st)
     start_time = st.session_state[SESSION_KEYS.START_TIME]
-    results = cv_extract_frames(
-        # 从指定时间开始取一帧图片，供客户确认物品的位置
-        on_extracting,
-        None,
-        video_path,
-        result_dir,
-        start_time,
-        1,
-        1,
-        1,
-    )
-    if results and len(results) > 0:
-        files = list_image_files(result_dir)
-        if len(files) == 0:
-            st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
-            st.rerun()
-        identified_objects = yolo_find_objects_by_images(
-            yolo_identifying_callback, None, result_dir, None, 0.2, True
-        )
-        st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = identified_objects
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_IDENTIFYING_OBJECTS
-    else:
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
-    st.rerun()
+    videos = list_video_files(video_path)
+    if len(videos) < 1: 
+        return 
 
+    video_file_name = f"{video_path}/{videos[0]}"
+    collision = VehicleDetectionSystem(model_path="/opt/models/yolo/yolo11x.pt", output_dir= result_dir)
+    image_file, vehicles = collision.get_vehicle_annotation_data(video_file_name, int(start_time))
+    prepared_data = {"image_file": image_file, "vehicles": vehicles}
+    st.session_state[SESSION_KEYS.PREPARED_DATA] = prepared_data
+    st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_IDENTIFYING_OBJECTS
+    st.rerun()
+   
 
 def identifying_objects():
-    identify_objects = st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS]
-
-    if len(identify_objects) == 0:
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
-        st.rerun()
-
     show_assistant_animation_message("请识别图片中的物件，点击可放大...")
-    video_dir, result_dir = get_resource_dir(st)
-    files = list_image_files(result_dir)
+    prepared_data  = st.session_state[SESSION_KEYS.PREPARED_DATA]
+    image_file = prepared_data['image_file']
+    vehicles = prepared_data['vehicles']
+    vehicle_ids = [v['vehicle_id'] for v in vehicles]   
     with st.chat_message("assistant"):
-        col_index = 0
-        image_cols = st.columns(3)
-        for file_name in files:
-            with image_cols[col_index]:
-                st.image(
-                    os.path.join(result_dir, file_name),
-                    caption="请在图中确认你的物品",
-                    use_container_width=True,
-                )
-            col_index += 1
-
-    options = []
-    obj = identify_objects[0]
-    for box in obj["boxes"]:
-        options.append(f"{box['box_index']}-{box['label']}")
-
-    with st.chat_message("assistant"):
-        st.radio(
-            label="请选择您的物件",
-            options=options,
-            horizontal=True,
-            key=SESSION_KEYS.USER_OBJECT_BOX_INDEX,
-        )
-
-
-def yolo_identifying_callback(placeholder, file_name):
-    pass
-
-
-def on_extracting(placeholder, index, total):
-    pass
-
+        cols = st.columns(2)
+        with cols[0]:
+            st.image(image_file)
+        with cols[1]:
+            selected_index = st.radio("请选择", vehicle_ids, horizontal=True)
+            if st.button("请确认", type='primary', use_container_width=True):
+                append_asistant_message(f"您选择了图片中的第{selected_index}车")
+                st.session_state[SESSION_KEYS.USER_OBJECT_BOX_INDEX] =  selected_index + 1
+                st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_IDENTIFIED_LOST_OBJECT
+                st.rerun()
 
 def show_prompt_setting_start_time():
     st.session_state[SESSION_KEYS.STAGE] = STAGE.USER_SETTING_START_TIME
