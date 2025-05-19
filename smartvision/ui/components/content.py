@@ -47,7 +47,7 @@ def show_footages():
     results = st.session_state[SESSION_KEYS.B2_RESULTS] 
     if results:
         st.subheader("Top 3 closest vehicles:")
-        st.subheader("碰撞检测平面距离结果")
+        st.subheader("平面距离检测结果")
         cols = st.columns(3)
         for i, result in enumerate(results):
             with cols[i]:
