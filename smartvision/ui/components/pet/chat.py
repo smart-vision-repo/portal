@@ -19,9 +19,10 @@ def render_pet_col_chat(chat_col, info_col):
     logger.debug("render chat info.")
 
     curr = st.session_state[SESSION_KEYS.STAGE]
-    if curr == STAGE.COMPLETED_NO_RESULTS:
+    if curr == STAGE.NO_RESULTS:
         st.markdown("""### 谢谢您使用助手，本次会话结束, 祝你生活愉快!""")
         st.rerun()
+
     # 初始化对话（如果尚未初始化）
     if not st.session_state[SESSION_KEYS.INITIALIZED]:
         welcome_message = "您好！我是宠物寻找助手, 请告诉您的宠物有关特征"
@@ -40,23 +41,13 @@ def render_pet_col_chat(chat_col, info_col):
                             message["content"],
                             unsafe_allow_html=True,
                         )
-
-        # 如果正在处理，显示加载动画
-        if st.session_state[SESSION_KEYS.PROCESSING]:
-            with st.chat_message("assistant"):
-                show_md_content(
-                    st,
-                    KEY_NAMES.FILE_LOADING_ANIMATION,
-                    st.session_state[SESSION_KEYS.PROMPT_LOADING_MSG],
-                )
-
         # 识别目标
-        if curr == STAGE.IDENTIFING_OBJECTS:
+        if curr == STAGE.SEARCHING:
             show_assistant_animation_message("正在进行视频内容检测...")
             logger.debug("正在进行视频检测.")
             with st.chat_message("assistant"):
                 placeholder = st.empty()
-                identify_objects(placeholder)
+                searching(placeholder)
 
         # 用户输入区域
         if not st.session_state[SESSION_KEYS.COLLECTION_COMPLETE]:
@@ -120,26 +111,7 @@ def handle_user_input():
         st.session_state[SESSION_KEYS.USER_INPUT_TEXT] = user_input
         st.rerun()
 
-def ready_for_uploading():
-    st.session_state[SESSION_KEYS.PROMPT_LOADING_MSG] = (
-        PROMPT_TEXT.UPLOADING_IDENTIFIED_OBJECTS
-    )
-    st.session_state[SESSION_KEYS.PROCESSING] = True
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.ALIYUN_UPLOADING_OBJECTS
-    st.rerun()
-
-
-def upload_images_to_aliyun():
-    files = st.session_state[SESSION_KEYS.FILTERED_OBJECTS]
-    file_names = [file["file_name"] for file in files]
-    transaction_id = st.session_state[SESSION_KEYS.TRANSACTION_ID]
-    put_identified_objects(transaction_id, file_names)
-    st.session_state[SESSION_KEYS.PROCESSING] = False
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.ALIYUN_OBJECTS_UPLOADED
-    st.rerun()
-
-
-def identify_objects(placeholder):
+def searching(placeholder):
     pet_type = st.session_state[SESSION_KEYS.PET_INFO]["pet_type"]
     object_name = ""
     if "狗" in pet_type:
@@ -151,9 +123,8 @@ def identify_objects(placeholder):
         return
         
     video_dir, image_dir = get_resource_dir(st)
-
     # 查找
-    identified_objects = yolo_find_objects_by_video(
+    results = yolo_find_objects_by_video(
         video_dir= video_dir,
         image_dir= image_dir,
         object_name= object_name,
@@ -163,30 +134,22 @@ def identify_objects(placeholder):
         placeholder= placeholder
     )
 
-    st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = identified_objects
-    found = len(identified_objects)
+    st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = results
+    found = len(results)
     if found == 0:
         append_asistant_message(f"未找到相关内容")
-        st.session_state[SESSION_KEYS.STAGE] = STAGE.COMPLETED_NO_RESULTS
     else:
         append_asistant_message(f"找到{found}个画面包含{pet_type}")
 
-    # sorted_data = filter_identified_objects(identified_objects)
-    st.session_state[SESSION_KEYS.FILTERED_OBJECTS] = identified_objects
-    append_asistant_message(f"过滤出置信度最高的{len(identified_objects)}个画面")
+    st.session_state[SESSION_KEYS.SEARCH_RESULTS] = results
+    append_asistant_message(f"过滤出置信度最高的{len(results)}个画面")
     # 显示图片
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.CUSTOMER_OBJECT_IDENTIFIED
+    st.session_state[SESSION_KEYS.STAGE] = STAGE.SEARCHING_COMPLETED
     st.rerun()
 
 
 def on_identifying_object(placeholder, text):
     placeholder.markdown(text, unsafe_allow_html=True)
-
-
-def onSetStartTime(start_time):
-    append_asistant_message(f"你选择了从第**⏰{start_time}**分钟开始查找")
-    st.session_state[SESSION_KEYS.START_TIME] = start_time
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.SHOW_SEARCHING_PROMPT
 
 
 def check_info_complete():
@@ -195,7 +158,6 @@ def check_info_complete():
     required_fields = ["pet_type", "breed", "color", "last_seen_time", "valid"]
     for field in required_fields:
         value = pet_info[field]
-        logger.debug(f".....>>{value}")
         if not value:
             return False
     pet_info = st.session_state[SESSION_KEYS.PET_INFO]

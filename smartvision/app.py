@@ -23,7 +23,7 @@ from ui.components.sidebar import render_sidebar
 from ui.components.content import render_content
 from common.session import init_session
 from common.loader import load_css
-
+from streamlit_player import st_player
 
 # app.py
 import streamlit as st
@@ -43,11 +43,11 @@ logger = get_logger()
 # load css
 load_css(st, "smartvision/ui/static/css/style.css")
 
-# init session values
+# # init session values
 init_session(st)
 
-# render sidebar
+# # render sidebar
 render_sidebar()
 
-# Render main content
+# # Render main content
 render_content()

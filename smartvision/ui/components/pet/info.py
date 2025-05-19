@@ -13,9 +13,9 @@ def render_pet_info_col_info(info_col):
         if st.session_state[SESSION_KEYS.COLLECTION_COMPLETE]:
             st.subheader("📋 宠物信息摘要")
             st.info(generate_summary())
-            st.session_state[SESSION_KEYS.STAGE] = STAGE.SHOW_PROMPT_UPLOADING_VIDEO
+            st.session_state[SESSION_KEYS.STAGE] = STAGE.UPLOADING_VIDEO
 
-        if (st.session_state[SESSION_KEYS.STAGE] == STAGE.SHOW_PROMPT_UPLOADING_VIDEO):
+        if (st.session_state[SESSION_KEYS.STAGE] == STAGE.UPLOADING_VIDEO):
             # 视频上传区域
             st.markdown("### 📹 上传宠物视频")
             st.markdown("请上传您宠物的视频，这将帮助我们更快地找到它")
@@ -29,12 +29,7 @@ def render_pet_info_col_info(info_col):
 
             if uploaded_files is not None and len(uploaded_files) > 0:
                 if st.button("确认上传", type="primary", use_container_width=True):
-                    on_file_uploaded(uploaded_files, STAGE.IDENTIFING_OBJECTS)
-
-        # 执行查找
-        if curr == STAGE.SHOW_SEARCHING_PROMPT:
-            if st.button("开始查找", type="primary", use_container_width=True):
-                ready_for_extracting_frames()
+                    on_file_uploaded(uploaded_files, STAGE.SEARCHING)
 
 
 def generate_summary():
@@ -50,8 +45,3 @@ def generate_summary():
     if pet_info["extra_info"]:
         summary += f"- 额外信息：{pet_info['extra_info']}\n"
     return summary
-
-
-def ready_for_extracting_frames():
-    st.session_state[SESSION_KEYS.STAGE] = STAGE.EXTRACTIING_IMAGES
-    st.rerun()

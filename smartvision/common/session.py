@@ -40,7 +40,7 @@ def reset(st):
 
     st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = []
 
-    st.session_state[SESSION_KEYS.FILTERED_OBJECTS] = []
+    st.session_state[SESSION_KEYS.SEARCH_RESULTS] = []
 
     st.session_state[SESSION_KEYS.AI_RUNNING] = False
 
@@ -117,8 +117,8 @@ def init_session(st):
     if SESSION_KEYS.INDENTIFIED_OBJECTS not in st.session_state:
         st.session_state[SESSION_KEYS.INDENTIFIED_OBJECTS] = []
 
-    if SESSION_KEYS.FILTERED_OBJECTS not in st.session_state:
-        st.session_state[SESSION_KEYS.FILTERED_OBJECTS] = []
+    if SESSION_KEYS.SEARCH_RESULTS not in st.session_state:
+        st.session_state[SESSION_KEYS.SEARCH_RESULTS] = []
 
     if SESSION_KEYS.AI_RUNNING not in st.session_state:
         st.session_state[SESSION_KEYS.AI_RUNNING] = False

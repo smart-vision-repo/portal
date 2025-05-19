@@ -23,6 +23,15 @@ def show_assistant_animation_message(message):
             message,
         )
 
+def show_assistant_messages(chat_container):
+    with chat_container:
+        for message in st.session_state[SESSION_KEYS.MESSAGES]:
+            if message["role"] != "system":  # 不显示系统消息
+                with st.chat_message(message["role"]):
+                    st.markdown(
+                        message["content"],
+                        unsafe_allow_html=True,
+                    )
 
 def on_file_uploaded(uploaded_files, next_stage):
     """处理视频上传"""
@@ -36,8 +45,7 @@ def on_file_uploaded(uploaded_files, next_stage):
                 f.write(uploaded_file.getbuffer())
             st.success(f"文件 '{uploaded_file.name}' 已保存至 {video_dir}")
             index += 1
-        st.session_state[SESSION_KEYS.PROCESSING] = False
-        st.session_state[SESSION_KEYS.VIDEO_UPLOADED] = True
+        # 存储文件
         st.session_state[SESSION_KEYS.UPLOADED_FILES] = uploaded_files
         
         # 获取视频时长信息，用于计费.
@@ -46,6 +54,6 @@ def on_file_uploaded(uploaded_files, next_stage):
         total = 0
         for video in videos:
             total += video["duration"]
-        append_asistant_message(f"视频上传成功, 共{len(uploaded_files)}个， 总时长约{total}秒")
+        append_asistant_message(f"视频上传成功,共{len(uploaded_files)}个,总时长{total / 60}分钟")
         st.session_state[SESSION_KEYS.STAGE] = next_stage
         st.rerun()

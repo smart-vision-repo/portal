@@ -21,7 +21,7 @@ class SESSION_KEYS:
     INDENTIFIED_OBJECTS = "identified_objects"
     B2_RESULTS = "b2_results"
     PREPARED_DATA = "prepared_data"
-    FILTERED_OBJECTS = "filterd_objects"
+    SEARCH_RESULTS = "filterd_objects"
     AI_RUNNING = "ai_running"
     USER_INPUT_TEXT = "user_input_text"
     USER_OBJECT_BOX_INDEX ="user_object_box_index"
@@ -33,36 +33,46 @@ class SESSION_KEYS:
 
 class STAGE:
 
+    """
+        第一阶段，视频资料准备以及宠物类的AI对话
+    """
     INIT = 101 # 初始化
-    READY_FOR_INQUIRING = 102 # 准备询问
-    INQUIRING_COMPLETED = 103 # 询问完成
-    SHOW_PROMPT_UPLOADING_VIDEO  = 104 # 显示上传视频提示
-    GET_VIDEO_INFO = 105 # 获取视频信息
-    SHOW_PROMPT_SETTING_START_TIME = 106 # 显示设置开始时间提示
-    USER_SETTING_START_TIME = 107 # 用户设置开始时间
-    START_TIME_COMPLETED = 108 # 用户设置开始时间完成
-    SHOW_SEARCHING_PROMPT = 109 # 显示查找提示
-    SEARCHING = 110 # 正在查找
-    SEARCHING_COMPLETED = 111 # 查找完成
+    # 准备询问
+    READY_FOR_INQUIRING = 102 
+    # 询问完成
+    INQUIRING_COMPLETED = 103 
+    # 显示上传视频提示
+    UPLOADING_VIDEO  = 104 
+    # 视频上传完成，不能更改业务类型
+    VIDEO_UPLOADED = 105
+    # 获取视频信息
+    GET_VIDEO_INFO = 106
 
-    # 查找过程
-    EXTRACTIING_IMAGES = 200
-    SHOW_PROPMT_IDENTIFY_OBJECTS = 201
-    IDENTIFING_OBJECTS = 202
 
-    # 查找物品
-    CUSTOMER_PREPARE_OBJECTS = 300 # 根据用户设定的开始时间，准备图片给用户指认物品位置
-    SHOW_PROMPT_PREPARING_IMAGES = 301
-    CUSTOMER_IDENTIFYING_OBJECTS = 302 # 用户正在对物品的指认
-    CUSTOMER_OBJECT_IDENTIFIED = 304 # 用户完成对物品的指认
-    CUSTOMER_VIDEO_CLIPPED = 305 # 完成对失物场景的视频剪切
-    CUSTOMER_IDENTIFIED_LOST_OBJECT = 306 # 用户完成对物品的指认
+    """
+        第二阶段，支付费用
+    """
+    # 产生支付二维码
+    GEN_PAYMENT_QR_CODE = 201
+    # 刷新页面
 
-    # 阿里云处理过程.
-    ALIYUN_SHOW_UPLOADING_PROMPT = 500
-    ALIYUN_UPLOADING_OBJECTS = 501
-    ALIYUN_OBJECTS_UPLOADED = 502
-    COMPLETED_NO_RESULTS = 999  # 完成，没有结果
+    """
+        第3阶段，定位视频中的物件
+    """
+    # 显示设置开始时间提示
+    SETTING_START_TIME = 310
+    START_TIME_COMPLETED = 311 # 用户设置开始时间完成
+    PREPARE_IMAGES = 320 # 抽取视频中的图片，供用户确认.
+    IDENTIFYING_OBJECTS = 330 # 用户正在对物品的指认
+    OBJECT_IDENTIFIED = 331 # 用户完成对物品的指认
+
+    """
+        第4阶段, 执行查找
+    """
+    SEARCHING = 401 # 正在查找
+    CLIP_VIDEO = 402 # 剪切视频
+    SEARCHING_COMPLETED = 403 # 查找完成
+    NO_RESULTS = 404  # 完成，没有结果
 
 
 class DATA_OPTIONS:
