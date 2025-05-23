@@ -4,7 +4,7 @@ import cv2
 import time
 from ultralytics import YOLO
 from collections import defaultdict
-from smartvision.common.utils import get_str_time, get_available_device
+from common.utils import get_str_time, get_available_device
 
 
 class VehicleDetectionSystem:

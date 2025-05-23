@@ -2,7 +2,7 @@ import cv2
 import time
 import os
 from ultralytics import YOLO
-from smartvision.common.utils import get_str_time, get_available_device
+from common.utils import get_str_time, get_available_device
 
 model = YOLO("/opt/models/yolo/yolo11x.pt", verbose=False)  #
 
