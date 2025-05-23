@@ -1,5 +1,12 @@
-FROM python:3.10-slim
-
+# Use CUDA base image
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+# Check CUDA version compatibility
+RUN nvidia-smi || true
+ENV NVIDIA_REQUIRE_CUDA="cuda>=11.8"
+ENV NVIDIA_DRIVER_MIN_VERSION="450.80.02"
+# Set environment variables for NVIDIA GPU support
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
     # 图形界面支持
