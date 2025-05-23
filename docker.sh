@@ -12,26 +12,26 @@ if [ $# -eq 0 ] || [ "$1" = "help" ] || [ "$1" = "-h" ]; then
 fi
 
 if [ "$1" = "purge" ]; then
-    docker ps -a | grep smart-vision | awk '{print "docker rm " $1}' | sh
-    docker rmi smart-vision/portal
+    docker ps -a | grep smart-vision-portal | awk '{print "docker rm " $1}' | sh
+    docker rmi smart-vision-portal
     exit 0
 elif [ "$1" = "run" ]; then
     # Check if container exists
-    if docker ps -a | grep -q smart-vision; then
+    if docker ps -a | grep -q smart-vision-portal; then
         # If exists, restart it
-        docker restart $(docker ps -a | grep smart-vision | awk '{print $1}')
+        docker restart $(docker ps -a | grep smart-vision-portal | awk '{print $1}')
     else
         # If doesn't exist, create new container
         if [ "$(uname)" = "Linux" ]; then
             docker run -it --env-file /opt/bash/env -v /var/tmp/smart-vision:/var/tmp/smart-vision -v /opt/models/yolo:/opt/models/yolo -p 8501:8501 --gpus '"device=0"' smart-vision/portal
         else
-            docker run -it --env-file /opt/bash/env -v /var/tmp/smart-vision:/var/tmp/smart-vision -v /opt/models/yolo:/opt/models/yolo -p 8501:8501 smart-vision/portal
+            docker run -it --env-file /opt/bash/env -v /var/tmp/smart-vision:/var/tmp/smart-vision -v /opt/models/yolo:/opt/models/yolo -p 8501:8501 smart-vision-portal:
         fi
     fi
     exit 0
 elif [ "$1" = "build" ]; then
-    docker ps -a | grep smart-vision | awk '{print "docker rm " $1}' | sh
-    docker rmi smart-vision/portal
-    docker build -t smart-vision/portal .
+    docker ps -a | grep smart-vision-portal | awk '{print "docker rm " $1}' | sh
+    docker rmi smart-vision-portal
+    docker build -t smart-vision-portal .
     exit 0
 fi
